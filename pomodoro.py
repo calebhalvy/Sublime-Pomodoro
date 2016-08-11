@@ -3,6 +3,7 @@ import sublime_plugin
 import threading
 import functools
 import time
+import math
 
 timeRecorder_thread = None
 
@@ -17,12 +18,12 @@ def drawProgressbar(totalSize, currPos, charStartBar, charEndBar, charBackground
     return s
 
 
-def updateWorkingTimeStatus(totMins, leftMins):
+def updateWorkingTimeStatus(totMins, leftMins, leftSecs):
     sublime.status_message('Working time remaining: ' + str(leftMins) + 'mins ' + drawProgressbar(totMins, totMins - leftMins + 1, '[', ']', '-', 'O'))
 
 
-def updateRestingTimeStatus(totMins, leftMins):
-    sublime.status_message('Resting time remaining: ' + str(leftMins) + 'mins ' + drawProgressbar(totMins, totMins - leftMins + 1, '[', ']', '-', 'O'))
+def updateRestingTimeStatus(totMins, leftMins, leftSecs):
+    sublime.status_message('Working time remaining: ' + str(leftMins - 1) + 'mins ' + str(leftSecs) + 'secs ' + drawProgressbar(totMins, totMins - leftMins + 1, '[', ']', '-', 'O'))
 
 def stopRecording():
     sublime.status_message('')
@@ -37,24 +38,15 @@ class TimeRecorder(threading.Thread):
 
     def recording(self, runningMins, displayCallback):
         leftMins = runningMins
-        while leftMins > 1:
+        while leftMins > 0:
+            leftSecs = 60
             for i in range(1, 60):
                 if self.stopped():
                     stopRecording()
                     break
-
-                sublime.set_timeout(functools.partial(displayCallback, runningMins, leftMins), 10)
+                leftSecs = leftSecs - 1
+                sublime.set_timeout(functools.partial(displayCallback, runningMins, leftMins, leftSecs), 10)
                 time.sleep(1)
-            leftMins = leftMins - 1
-
-        if leftMins == 1:
-            for i in range(1, 12):
-                if self.stopped():
-                    stopRecording()
-                    break
-
-                sublime.set_timeout(functools.partial(displayCallback, runningMins, leftMins), 10)
-                time.sleep(5)
             leftMins = leftMins - 1
 
     def run(self):
@@ -71,7 +63,7 @@ class TimeRecorder(threading.Thread):
                 time.sleep(2)
                 continue
 
-            rest = sublime.ok_cancel_dialog('Hey, you are working too hard, take a rest.', 'OK')
+            rest = sublime.ok_cancel_dialog('Hey, time to take a break.', 'OK')
             if rest:
                 self.recording(self.restingMins, updateRestingTimeStatus)
                 if self.stopped():
